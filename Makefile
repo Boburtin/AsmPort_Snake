@@ -16,4 +16,7 @@ $(TARGET): $(SRCS)
 clean:
 	@$(RM) -r $(BUILDDIR) $(TARGET)
 
-.PHONY: all clean
+run: $(TARGET)
+	./$(TARGET)
+
+.PHONY: all clean run

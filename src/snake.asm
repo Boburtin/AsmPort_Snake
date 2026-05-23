@@ -17,7 +17,7 @@ DIR_RIGHT	 	= 1
 DIR_DOWN	 	= 2
 DIR_LEFT	 	= 3
 
-section '.code' code readable executable		; rcx, rdx, r8, r9, rax windows
+section '.code' code readable executable; rcx, rdx, r8, r9, rax (reminder re: windows calling convention)
 
 zerob:
 	mov     rdi, board
@@ -40,23 +40,23 @@ xor64:
 	mov     [seed], rax
 	ret
 
-checkfood:
+food_fn:
 .loopstrt:
 	call    xor64
-	xor     rdx, rdx							; zero rdx so it doesn't read it as an extension of rcx
-	mov     rcx, 400							; div divisor
-	div     rcx									; xor64 puts result in rax; / rcx in rax; % rcx in rdx
-	cmp     byte 	[board + rdx], 0			; check if tile is free
-	jne     .loopstrt							; jump back to loopstrt if it's not
-	mov     word	[food_idx], rdx				; move rdx as a word sized int into food index if it is
+	xor     rdx, rdx; zero rdx so it doesn't read it as an extension of rcx
+	mov     rcx, 400							
+	div     rcx; rdx holds the remainder (index % 400)
+	cmp     byte 	[board + rdx], 0		
+	jne     .loopstrt							
+	mov     word	[food_idx], dx
 	mov     byte	[board + rdx], 2
 	ret
 
 read_input:
-	mov     rcx, [hStdin]						; move our handle
-	lea     rdx, [pending_events]				;
+	mov     rcx, [hStdin]; move our handle
+	lea     rdx, [pending_events]
 	call    [GetNumberOfConsoleInputEvents]
-	cmp     dword 	[pending_events], 0
+	cmp     dword [pending_events], 0
 	je      .no_input
 	mov     rcx, [hStdin]
 	lea     rdx, [input_record]
@@ -68,16 +68,17 @@ read_input:
 	cmp     dword [input_record + 4], 0
 	je      .no_input
 	movzx   eax, word [input_record + 10]
-	cmp     eax, 0x26							; up
+	cmp     eax, 0x26; up
 	je      .up_input
-	cmp     eax, 0x27							; right
+	cmp     eax, 0x27; right
 	je      .right_input
-	cmp     eax, 0x28							; down
+	cmp     eax, 0x28; down
 	je      .down_input
-	cmp     eax, 0x25							; left
+	cmp     eax, 0x25; left
 	je      .left_input
-	cmp     eax, 0x1B							; escape
+	cmp     eax, 0x1B; escape
 	je      quit
+	ret
 .up_input:
 	mov     word [dir_buf], DIR_UP
 	ret
@@ -100,47 +101,45 @@ update:
 	sub     ecx, eax
 	and     ecx, 3
 	cmp     ecx, 2
-	cmovne  eax, edx							; update dir if ecx is not 2 (not opposites)
-	mov     word [dir], ax						; save new dir
-	movzx   rbx, word [snk_head]				; load head
-	movzx   rbx, word [snake + rbx*2]			; load snake[snk_head]
-	movsx   rdx, word [dirtable + rax*2]		; load dir DELTA
-	add     rbx, rdx							; get next tile
-	mov     word [next], rbx
+	cmovne  eax, edx; overwrite dir in eax with the buffer if the buffer is not opposite to current dir
+	mov     word [dir], ax
+	movzx   rbx, word [snk_head]
+	movzx   rbx, word [snake + rbx*2]; load snake[snk_head] (the board index of head)
+	movsx   rdx, word [dirtable + rax*2]; load the delta
+	add     rbx, rdx; get next tile by adding the delta to position
 .check_right:
 	cmp     eax, DIR_RIGHT
 	jne     .check_left
 	push    rax
-	mov     rax, rbx							; copy NEXT into rax
-	xor     rdx, rdx							; clear register
-	mov     rcx, WIDTH							; prep for next % COLS
-	div     rcx									; next % COLS
-	test    rdx, rdx							; set ZF = 1 if rdx & rdx == 0
+	mov     rax, rbx							
+	xor     rdx, rdx						
+	div     rcx	; next % columns -> result in rdx				
+	test    rdx, rdx						
 	pop     rax
-	jnz     .check_left							; jumps if ZF != 0 -> rdx & rdx == 0
+	jnz     .check_left							
 	sub     rbx, WIDTH
 	jmp     .check_final
 .check_left:
-	cmp     eax, DIR_LEFT						; check left wrap
+	cmp     eax, DIR_LEFT
 	jne     .check_up
 	push    rax
-	mov     rax, rbx							; next
+	lea		rax, [rbx+1]
 	xor     rdx, rdx
 	mov     rcx, WIDTH
-	div     rcx
-	cmp     rdx, 19
+	div     rcx ; next + 1 % columns -> result in rdx
+	test 	rdx, rdx
 	pop     rax
-	jne     .check_up
+	jnz		.check_up
 	add     rbx, WIDTH
 	jmp     .check_final
 .check_up:
 	cmp     eax, DIR_UP
 	jne     .check_down
 	push    rax
-	mov     rax, rbx							; next
-	cmp     rax, 0
+	mov     rax, rbx 
+	test	rax, rax
 	pop     rax
-	jg      .check_down
+	jge      .check_down
 	add     rbx, 400
 	jmp     .check_final
 .check_down:
@@ -151,6 +150,7 @@ update:
 	jl      .check_final
 	sub     rbx, 400
 .check_final:
+	mov     word [next], bx
 	movzx   rax, word [food_idx]
 	cmp     rbx, rax
 	je      .eat
@@ -174,7 +174,7 @@ update:
 .ok_hd:
 	mov     word [snk_head], ax
 	movzx   rbx, word [next]
-	mov     word [snake + rax*2], rbx
+	mov     word [snake + rax*2], bx
 	mov     byte [board + rbx], 1
 	ret
 .eat:
@@ -186,10 +186,12 @@ update:
 .ok_eat:
 	mov     word [snk_head], ax
 	movzx   rbx, word [next]
-	mov     word [snake + rax*2], rbx
+	mov     word [snake + rax*2], bx
 	mov     byte [board + rbx], 1
-	call    checkfood
+	call    food_fn
 	ret
+.dead:
+	jmp		init_game
 
 init_game:
 	call    zerob
@@ -199,56 +201,70 @@ init_game:
 	mov     word [dir_buf], 1
 	mov     word [snake], START_INDEX
 	mov     byte [board + START_INDEX], 1
-	mov     word [food_idx], START_FOOD
-	call    checkfood
+	call    food_fn
 	ret
 
 start:
-	push    rbp
-	mov     rbp, rsp
-	sub     rsp, 32
-	rdtsc   									; rdtsc puts the 64bit result into edx:eax
-	shl     rdx, 32								; shl moves the high half up (left)
-	or      rax, rdx							; puts the timestamp back together
-	mov     [seed], rax							; store the rng seed
-	mov     rcx, -10							; -10 is stdin ; -11 is stdout ; -12 is stderr
-	call    [GetStdHandle]						; negative values in rcx means that if
-	mov     [hStdin], rax						; the call fails it will be invalid
-	mov     rcx, -11
-	call    [GetStdHandle]
-	mov     [hStdout], rax
+push    rbp
+mov     rbp, rsp
+sub     rsp, 48
+rdtsc; __rdtsc()
+shl     rdx, 32; put high bits in least sig regs
+or      rax, rdx; tttt 0000 : 0000 tttt (TLDR->rdx has high bits)
+mov     [seed], rax; store the rng seed
+mov     rcx, -10; -10 is stdout
+call    [GetStdHandle]
+mov     [hStdin], rax
+mov     rcx, -11; -11 is stdin
+call    [GetStdHandle]
+mov     [hStdout], rax
+call	init_game
 .game_loop:
-	call    read_input
-	call    update
-	mov     rbx, 0
+mov		rbx, 0
 .render_loop:
-	movzx   eax, byte [board + rbx]
-	cmp     eax, 1
-	je      .draw_snake
-	cmp     eax, 2
-	je      .draw_food
-	lea     rdx, [spacechar]
-	jmp     .rest
-	.draw_snake
-	lea     rdx, [snakechar]
-	jmp     .rest
-	.draw_food
-	lea     rdx, [foodchar]
-	.rest
-	mov     rcx, [hStdout]
-	inc     rbx
-	cmp     rbx, 400
-	jne     .render_loop
-quit:
-	add     rsp, 32
-	pop     rbp
-	invoke  ExitProcess, 0						; exit program
+movzx   eax, byte [board + rbx]
+cmp     eax, 1
+je      .draw_snake
+cmp     eax, 2
+je      .draw_food
+lea     rdx, [spacechar]
+jmp     .rest
+.draw_snake:
+lea     rdx, [snakechar]
+jmp     .rest
+.draw_food:
+lea     rdx, [foodchar]
+.rest:  
+push    rdx; save the char on stack
+mov     rax, rbx
+xor     rdx, rdx
+mov     rcx, WIDTH
+div     rcx
+shl     eax, 16
+or      eax, edx
+mov     r9d, eax
+pop     rdx; pop for the Write call
+mov     rcx, [hStdout]
+mov     r8, 1
+lea     rax, [events_read]
+mov     [rsp+32], rax
+call    [WriteConsoleOutputCharacterW]
+inc     rbx
+cmp     rbx, 400
+jne 	.render_loop
+call	read_input
+call	update
+invoke  Sleep, 100
+jmp		.game_loop
+quit:	; exit program
+add     rsp, 48
+pop     rbp
+invoke  ExitProcess, 0
 
 section '.data' data readable writeable
-dirtable        dw      -WIDTH, 1, WIDTH, -1
+dirtable        dw      -WIDTH, 1, WIDTH, -1; delta array
 foodchar        db      '*', 0
 snakechar       db      'O', 0
-wallchar        db      '/', 0
 spacechar       db      ' ', 0
 
 section '.bss' readable writeable
@@ -268,12 +284,12 @@ hStdout         rq      1
 next            rw      1
 
 section '.idata' import data readable writeable
-	library kernel32, 'kernel32.dll'
-	import	kernel32, \
-	GetStdHandle,'GetStdHandle',\
-	WriteConsoleOutputCharacterW,'WriteConsoleOutputCharacterW',\
-	SetConsoleCursorPosition,'SetConsoleCursorPosition',\
-	ReadConsoleInputA,'ReadConsoleInputA',\
-	GetNumberOfConsoleInputEvents,'GetNumberOfConsoleInputEvents',\
-	Sleep,	'Sleep',\
-	ExitProcess, 'ExitProcess'
+library kernel32, 'kernel32.dll'
+import	kernel32, \
+GetStdHandle,'GetStdHandle',\
+WriteConsoleOutputCharacterW,'WriteConsoleOutputCharacterW',\
+SetConsoleCursorPosition,'SetConsoleCursorPosition',\
+ReadConsoleInputA,'ReadConsoleInputA',\
+GetNumberOfConsoleInputEvents,'GetNumberOfConsoleInputEvents',\
+Sleep,	'Sleep',\
+ExitProcess, 'ExitProcess'
