@@ -106,7 +106,7 @@ update:
 	movzx   rbx, word [snake + rbx*2]			; load snake[snk_head]
 	movsx   rdx, word [dirtable + rax*2]		; load dir DELTA
 	add     rbx, rdx							; get next tile
-	mov		word [next], rbx
+	mov     word [next], rbx
 .check_right:
 	cmp     eax, DIR_RIGHT
 	jne     .check_left
@@ -122,73 +122,73 @@ update:
 	jmp     .check_final
 .check_left:
 	cmp     eax, DIR_LEFT						; check left wrap
-	jne		.check_up
-	push	rax
-	mov		rax, rbx							; next
-	xor		rdx, rdx
-	mov		rcx, WIDTH
-	div		rcx
-	cmp		rdx, 19
-	pop		rax
-	jne		.check_up
-	add		rbx, WIDTH
-	jmp		.check_final
+	jne     .check_up
+	push    rax
+	mov     rax, rbx							; next
+	xor     rdx, rdx
+	mov     rcx, WIDTH
+	div     rcx
+	cmp     rdx, 19
+	pop     rax
+	jne     .check_up
+	add     rbx, WIDTH
+	jmp     .check_final
 .check_up:
-	cmp		eax, DIR_UP
-	jne		.check_down
-	push	rax
-	mov 	rax, rbx							; next
-	cmp		rax, 0
-	pop		rax
-	jg		.check_down
-	add		rbx, 400
-	jmp		.check_final
+	cmp     eax, DIR_UP
+	jne     .check_down
+	push    rax
+	mov     rax, rbx							; next
+	cmp     rax, 0
+	pop     rax
+	jg      .check_down
+	add     rbx, 400
+	jmp     .check_final
 .check_down:
-	push	rax
-	mov		rax, rbx
-	cmp		rax, 400
-	pop		rax
-	jl		.check_final
-	sub		rbx, 400
+	push    rax
+	mov     rax, rbx
+	cmp     rax, 400
+	pop     rax
+	jl      .check_final
+	sub     rbx, 400
 .check_final:
 	movzx   rax, word [food_idx]
-	cmp		rbx, rax	
-	je		.eat
-	movzx 	rax, byte [board + rbx]
-	cmp		rax, 1
-	je		.dead
-	movzx	rax, word [snk_tail]
-	movzx	rbx, word [snake + rax*2]
-	mov		byte [board + rbx], 0
-	inc		ax
-	cmp		ax, 400
-	jb		.ok_tl
-	xor		ax, ax
-	.ok_tl:
-	mov		word [snk_tail], ax
-	movzx	rax, word [snk_head]
-	inc		ax
-	cmp		ax, 400
-	jb		.ok_hd
-	xor		ax, ax
-	.ok_hd:
-	mov		word [snk_head], ax
-	movzx	rbx, word [next]
-	mov		word [snake + rax*2], rbx
-	mov		byte [board + rbx], 1
+	cmp     rbx, rax
+	je      .eat
+	movzx   rax, byte [board + rbx]
+	cmp     rax, 1
+	je      .dead
+	movzx   rax, word [snk_tail]
+	movzx   rbx, word [snake + rax*2]
+	mov     byte [board + rbx], 0
+	inc     ax
+	cmp     ax, 400
+	jb      .ok_tl
+	xor     ax, ax
+.ok_tl:
+	mov     word [snk_tail], ax
+	movzx   rax, word [snk_head]
+	inc     ax
+	cmp     ax, 400
+	jb      .ok_hd
+	xor     ax, ax
+.ok_hd:
+	mov     word [snk_head], ax
+	movzx   rbx, word [next]
+	mov     word [snake + rax*2], rbx
+	mov     byte [board + rbx], 1
 	ret
 .eat:
-	movzx	rax, word [snk_head]
-	inc		ax
-	cmp		ax, 400
-	jb		.ok_eat
-	xor		ax, ax
-	.ok_eat:
-	mov		word [snk_head], ax
-	movzx 	rbx, word [next]
-	mov		word [snake + rax*2], rbx
-	mov		byte [board + rbx], 1
-	call	checkfood
+	movzx   rax, word [snk_head]
+	inc     ax
+	cmp     ax, 400
+	jb      .ok_eat
+	xor     ax, ax
+.ok_eat:
+	mov     word [snk_head], ax
+	movzx   rbx, word [next]
+	mov     word [snake + rax*2], rbx
+	mov     byte [board + rbx], 1
+	call    checkfood
 	ret
 
 init_game:
@@ -221,7 +221,7 @@ start:
 	call    read_input
 	call    update
 	mov     rbx, 0
-	.render_loop:
+.render_loop:
 	movzx   eax, byte [board + rbx]
 	cmp     eax, 1
 	je      .draw_snake
@@ -240,8 +240,8 @@ start:
 	cmp     rbx, 400
 	jne     .render_loop
 quit:
-	add		rsp, 32
-	pop		rbp
+	add     rsp, 32
+	pop     rbp
 	invoke  ExitProcess, 0						; exit program
 
 section '.data' data readable writeable
@@ -265,7 +265,7 @@ hStdin          rq      1
 dir             rw      1
 dir_buf         rw      1
 hStdout         rq      1
-next	        rw      1
+next            rw      1
 
 section '.idata' import data readable writeable
 	library kernel32, 'kernel32.dll'
