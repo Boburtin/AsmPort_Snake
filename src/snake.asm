@@ -1,6 +1,6 @@
 format PE64 CONSOLE 6.0
 
-entry start
+entry _start
 
 include './lib/win64a.inc'
 
@@ -17,7 +17,7 @@ DIR_RIGHT	 	= 1
 DIR_DOWN	 	= 2
 DIR_LEFT	 	= 3
 
-section '.code' code readable executable; rcx, rdx, r8, r9, rax (reminder re: windows calling convention)
+section '.text' code readable executable
 
 zerob:
 	mov     rdi, board
@@ -43,17 +43,17 @@ xor64:
 food_fn:
 .loopstrt:
 	call    xor64
-	xor     rdx, rdx; zero rdx so it doesn't read it as an extension of rcx
-	mov     rcx, 400							
-	div     rcx; rdx holds the remainder (index % 400)
-	cmp     byte 	[board + rdx], 0		
-	jne     .loopstrt							
+	xor     rdx, rdx							; zero rdx so it doesn't read it as an extension of rcx
+	mov     rcx, 400
+	div     rcx									; rdx holds the remainder (index % 400)
+	cmp     byte 	[board + rdx], 0
+	jne     .loopstrt
 	mov     word	[food_idx], dx
 	mov     byte	[board + rdx], 2
 	ret
 
 read_input:
-	mov     rcx, [hStdin]; move our handle
+	mov     rcx, [hStdin]
 	lea     rdx, [pending_events]
 	call    [GetNumberOfConsoleInputEvents]
 	cmp     dword [pending_events], 0
@@ -68,15 +68,15 @@ read_input:
 	cmp     dword [input_record + 4], 0
 	je      .no_input
 	movzx   eax, word [input_record + 10]
-	cmp     eax, 0x26; up
+	cmp     eax, 0x26
 	je      .up_input
-	cmp     eax, 0x27; right
+	cmp     eax, 0x27
 	je      .right_input
-	cmp     eax, 0x28; down
+	cmp     eax, 0x28
 	je      .down_input
-	cmp     eax, 0x25; left
+	cmp     eax, 0x25
 	je      .left_input
-	cmp     eax, 0x1B; escape
+	cmp     eax, 0x1B
 	je      quit
 	ret
 .up_input:
@@ -93,7 +93,6 @@ read_input:
 	ret
 .no_input:
 	ret
-
 update:
 	movzx   eax, word [dir]
 	movzx   ecx, word [dir_buf]
@@ -101,45 +100,46 @@ update:
 	sub     ecx, eax
 	and     ecx, 3
 	cmp     ecx, 2
-	cmovne  eax, edx; overwrite dir in eax with the buffer if the buffer is not opposite to current dir
+	cmovne  eax, edx
 	mov     word [dir], ax
 	movzx   rbx, word [snk_head]
-	movzx   rbx, word [snake + rbx*2]; load snake[snk_head] (the board index of head)
-	movsx   rdx, word [dirtable + rax*2]; load the delta
-	add     rbx, rdx; get next tile by adding the delta to position
+	movzx   rbx, word [snake + rbx*2]
+	movsx   rdx, word [dirtable + rax*2]
+	add     rbx, rdx
 .check_right:
 	cmp     eax, DIR_RIGHT
 	jne     .check_left
 	push    rax
-	mov     rax, rbx							
-	xor     rdx, rdx						
-	div     rcx	; next % columns -> result in rdx				
-	test    rdx, rdx						
+	mov     rax, rbx
+	xor     rdx, rdx
+	mov		rcx, WIDTH
+	div     rcx
+	test    rdx, rdx
 	pop     rax
-	jnz     .check_left							
+	jnz     .check_left
 	sub     rbx, WIDTH
 	jmp     .check_final
 .check_left:
 	cmp     eax, DIR_LEFT
 	jne     .check_up
 	push    rax
-	lea		rax, [rbx+1]
+	lea     rax, [rbx+1]
 	xor     rdx, rdx
 	mov     rcx, WIDTH
-	div     rcx ; next + 1 % columns -> result in rdx
-	test 	rdx, rdx
+	div     rcx									; next + 1 % columns -> result in rdx
+	test    rdx, rdx
 	pop     rax
-	jnz		.check_up
+	jnz     .check_up
 	add     rbx, WIDTH
 	jmp     .check_final
 .check_up:
 	cmp     eax, DIR_UP
 	jne     .check_down
 	push    rax
-	mov     rax, rbx 
-	test	rax, rax
+	mov     rax, rbx
+	test    rax, rax
 	pop     rax
-	jge      .check_down
+	jge     .check_down
 	add     rbx, 400
 	jmp     .check_final
 .check_down:
@@ -157,8 +157,8 @@ update:
 	movzx   rax, byte [board + rbx]
 	cmp     rax, 1
 	je      .dead
-	movzx   rax, word [snk_tail]
-	movzx   rbx, word [snake + rax*2]
+	movzx   rax, word 					[snk_tail]
+	movzx   rbx, word 					[snake + rax*2]
 	mov     byte [board + rbx], 0
 	inc     ax
 	cmp     ax, 400
@@ -191,8 +191,7 @@ update:
 	call    food_fn
 	ret
 .dead:
-	jmp		init_game
-
+	jmp     init_game
 init_game:
 	call    zerob
 	mov     word [snk_head], 0
@@ -203,66 +202,66 @@ init_game:
 	mov     byte [board + START_INDEX], 1
 	call    food_fn
 	ret
-
-start:
-push    rbp
-mov     rbp, rsp
-sub     rsp, 48
-rdtsc; __rdtsc()
-shl     rdx, 32; put high bits in least sig regs
-or      rax, rdx; tttt 0000 : 0000 tttt (TLDR->rdx has high bits)
-mov     [seed], rax; store the rng seed
-mov     rcx, -10; -10 is stdout
-call    [GetStdHandle]
-mov     [hStdin], rax
-mov     rcx, -11; -11 is stdin
-call    [GetStdHandle]
-mov     [hStdout], rax
-call	init_game
+_start:
+	push    rbp
+	mov     rbp, rsp
+	sub     rsp, 48
+	rdtsc
+	shl     rdx, 32								; to zero low bits
+	or      rax, rdx							; 		and construct rdtsc from eax, edx 
+	mov     [seed], rax							; randseed
+	mov     rcx, -10							; stdout
+	call    [GetStdHandle]
+	mov     [hStdin], rax
+	mov     rcx, -11							; stdin
+	call    [GetStdHandle]
+	mov     [hStdout], rax
+	call    init_game
 .game_loop:
-mov		rbx, 0
+	mov     rbx, 0
 .render_loop:
-movzx   eax, byte [board + rbx]
-cmp     eax, 1
-je      .draw_snake
-cmp     eax, 2
-je      .draw_food
-lea     rdx, [spacechar]
-jmp     .rest
+	movzx   eax, byte [board + rbx]
+	cmp     eax, 1
+	je      .draw_snake
+	cmp     eax, 2
+	je      .draw_food
+	lea     rdx, [spacechar]
+	jmp     .rest
 .draw_snake:
-lea     rdx, [snakechar]
-jmp     .rest
+	lea     rdx, [snakechar]
+	jmp     .rest
 .draw_food:
-lea     rdx, [foodchar]
-.rest:  
-push    rdx; save the char on stack
-mov     rax, rbx
-xor     rdx, rdx
-mov     rcx, WIDTH
-div     rcx
-shl     eax, 16
-or      eax, edx
-mov     r9d, eax
-pop     rdx; pop for the Write call
-mov     rcx, [hStdout]
-mov     r8, 1
-lea     rax, [events_read]
-mov     [rsp+32], rax
-call    [WriteConsoleOutputCharacterW]
-inc     rbx
-cmp     rbx, 400
-jne 	.render_loop
-call	read_input
-call	update
-invoke  Sleep, 100
-jmp		.game_loop
-quit:	; exit program
-add     rsp, 48
-pop     rbp
-invoke  ExitProcess, 0
+	lea     rdx, [foodchar]
+.rest:
+	push    rdx
+	mov     rax, rbx
+	xor     rdx, rdx
+	mov     rcx, WIDTH
+	div     rcx
+	shl     eax, 16
+	or      eax, edx
+	mov     r9d, eax
+	pop     rdx
+	mov     rcx, [hStdout]
+	mov     r8, 1
+	lea     rax, [events_read]
+	mov     [rsp+32], rax
+	call    [WriteConsoleOutputCharacterW]
+	inc     rbx
+	cmp     rbx, 400
+	jne     .render_loop
+	call    read_input
+	call    update
+	invoke  Sleep, 100
+	jmp     .game_loop
+quit:           								; restore stack and shut program down
+	add     rsp, 48
+	pop     rbp
+	invoke  ExitProcess, 0
+; end of instructions
 
 section '.data' data readable writeable
-dirtable        dw      -WIDTH, 1, WIDTH, -1; delta array
+dirtable        dw      -WIDTH, 1, WIDTH, -1	; delta array
 foodchar        db      '*', 0
 snakechar       db      'O', 0
 spacechar       db      ' ', 0
