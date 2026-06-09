@@ -2,7 +2,7 @@ format PE64 CONSOLE 6.0
 
 entry _start
 
-include './lib/win64a.inc'
+include 'win64a.inc'
 
 ; Constants
 WIDTH			= 20
@@ -16,6 +16,13 @@ DIR_UP		 	= 0
 DIR_RIGHT	 	= 1
 DIR_DOWN	 	= 2
 DIR_LEFT	 	= 3
+
+; Keys
+UP_KEY			= 0x26
+RIGHT_KEY		= 0x27
+DOWN_KEY		= 0x28
+LEFT_KEY		= 0x25
+ESC_KEY			= 0x1B
 
 section '.text' code readable executable
 
@@ -68,15 +75,15 @@ read_input:
 	cmp     dword [input_record + 4], 0
 	je      .no_input
 	movzx   eax, word [input_record + 10]
-	cmp     eax, 0x26
+	cmp     eax, UP_KEY
 	je      .up_input
-	cmp     eax, 0x27
+	cmp     eax, RIGHT_KEY
 	je      .right_input
-	cmp     eax, 0x28
+	cmp     eax, DOWN_KEY
 	je      .down_input
-	cmp     eax, 0x25
+	cmp     eax, LEFT_KEY
 	je      .left_input
-	cmp     eax, 0x1B
+	cmp     eax, ESC_KEY
 	je      quit
 	ret
 .up_input:
@@ -112,7 +119,7 @@ update:
 	push    rax
 	mov     rax, rbx
 	xor     rdx, rdx
-	mov		rcx, WIDTH
+	mov     rcx, WIDTH
 	div     rcx
 	test    rdx, rdx
 	pop     rax
@@ -157,8 +164,8 @@ update:
 	movzx   rax, byte [board + rbx]
 	cmp     rax, 1
 	je      .dead
-	movzx   rax, word 					[snk_tail]
-	movzx   rbx, word 					[snake + rax*2]
+	movzx   rax, word [snk_tail]
+	movzx   rbx, word [snake + rax*2]
 	mov     byte [board + rbx], 0
 	inc     ax
 	cmp     ax, 400
@@ -208,7 +215,7 @@ _start:
 	sub     rsp, 48
 	rdtsc
 	shl     rdx, 32								; to zero low bits
-	or      rax, rdx							; 		and construct rdtsc from eax, edx 
+	or      rax, rdx							; 		and construct rdtsc from eax, edx
 	mov     [seed], rax							; randseed
 	mov     rcx, -10							; stdout
 	call    [GetStdHandle]
