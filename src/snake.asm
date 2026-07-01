@@ -1,28 +1,24 @@
 format PE64 CONSOLE 6.0
-
 entry _start
-
-include 'win64a.inc'
+include "win64a.inc"
 
 ; Constants
-WIDTH			= 20
-HEIGHT			= 20
-TILES			= 400
-START_INDEX 	= 210
-START_FOOD  	= 110
+WIDTH			equ 20
+HEIGHT			equ 20
+TILES			equ 400
+START_INDEX 	equ 210
+START_FOOD  	equ 110
 
-; Direction enum
-DIR_UP		 	= 0
-DIR_RIGHT	 	= 1
-DIR_DOWN	 	= 2
-DIR_LEFT	 	= 3
+KEY_U			equ 0x26
+KEY_R			equ 0x27
+KEY_D			equ 0x28
+KEY_L			equ 0x25
+KEY_ESC			equ 0x1B
 
-; Keys
-UP_KEY			= 0x26
-RIGHT_KEY		= 0x27
-DOWN_KEY		= 0x28
-LEFT_KEY		= 0x25
-ESC_KEY			= 0x1B
+DIR_U			equ 0
+DIR_R			equ 1
+DIR_D			equ 2
+DIR_L			equ 3	
 
 section '.text' code readable executable
 
@@ -48,16 +44,16 @@ xor64:
 	ret
 
 food_fn:
-.loopstrt:
-	call    xor64
-	xor     rdx, rdx							; zero rdx so it doesn't read it as an extension of rcx
-	mov     rcx, 400
-	div     rcx									; rdx holds the remainder (index % 400)
-	cmp     byte 	[board + rdx], 0
-	jne     .loopstrt
-	mov     word	[food_idx], dx
-	mov     byte	[board + rdx], 2
-	ret
+	.loopstrt:
+		call    xor64
+		xor     rdx, rdx							; zero rdx so it doesn't read it as an extension of rcx
+		mov     rcx, 400
+		div     rcx									; rdx holds the remainder (index % 400)
+		cmp     byte 	[board + rdx], 0
+		jne     .loopstrt
+		mov     word	[food_idx], dx
+		mov     byte	[board + rdx], 2
+		ret
 
 read_input:
 	mov     rcx, [hStdin]
@@ -75,130 +71,132 @@ read_input:
 	cmp     dword [input_record + 4], 0
 	je      .no_input
 	movzx   eax, word [input_record + 10]
-	cmp     eax, UP_KEY
+	cmp     eax, KEY_U
 	je      .up_input
-	cmp     eax, RIGHT_KEY
+	cmp     eax, KEY_R
 	je      .right_input
-	cmp     eax, DOWN_KEY
+	cmp     eax, KEY_D
 	je      .down_input
-	cmp     eax, LEFT_KEY
+	cmp     eax, KEY_L
 	je      .left_input
-	cmp     eax, ESC_KEY
+	cmp     eax, KEY_ESC
 	je      quit
 	ret
-.up_input:
-	mov     word [dir_buf], DIR_UP
-	ret
-.right_input:
-	mov     word [dir_buf], DIR_RIGHT
-	ret
-.down_input:
-	mov     word [dir_buf], DIR_DOWN
-	ret
-.left_input:
-	mov     word [dir_buf], DIR_LEFT
-	ret
-.no_input:
-	ret
+	.up_input:
+		mov     word [dir_buf], DIR_U
+		ret
+	.right_input:
+		mov     word [dir_buf], DIR_R
+		ret
+	.down_input:
+		mov     word [dir_buf], DIR_D
+		ret
+	.left_input:
+		mov     word [dir_buf], DIR_L
+		ret
+	.no_input:
+		ret
 update:
 	movzx   eax, word [dir]
 	movzx   ecx, word [dir_buf]
 	mov     edx, ecx
 	sub     ecx, eax
 	and     ecx, 3
+; a delta of 2 means invalid (opposite to current) pending direction
 	cmp     ecx, 2
+; conditionally write pending direction buffer into real direction
 	cmovne  eax, edx
 	mov     word [dir], ax
 	movzx   rbx, word [snk_head]
 	movzx   rbx, word [snake + rbx*2]
 	movsx   rdx, word [dirtable + rax*2]
 	add     rbx, rdx
-.check_right:
-	cmp     eax, DIR_RIGHT
-	jne     .check_left
-	push    rax
-	mov     rax, rbx
-	xor     rdx, rdx
-	mov     rcx, WIDTH
-	div     rcx
-	test    rdx, rdx
-	pop     rax
-	jnz     .check_left
-	sub     rbx, WIDTH
-	jmp     .check_final
-.check_left:
-	cmp     eax, DIR_LEFT
-	jne     .check_up
-	push    rax
-	lea     rax, [rbx+1]
-	xor     rdx, rdx
-	mov     rcx, WIDTH
-	div     rcx									; next + 1 % columns -> result in rdx
-	test    rdx, rdx
-	pop     rax
-	jnz     .check_up
-	add     rbx, WIDTH
-	jmp     .check_final
-.check_up:
-	cmp     eax, DIR_UP
-	jne     .check_down
-	push    rax
-	mov     rax, rbx
-	test    rax, rax
-	pop     rax
-	jge     .check_down
-	add     rbx, 400
-	jmp     .check_final
-.check_down:
-	push    rax
-	mov     rax, rbx
-	cmp     rax, 400
-	pop     rax
-	jl      .check_final
-	sub     rbx, 400
-.check_final:
-	mov     word [next], bx
-	movzx   rax, word [food_idx]
-	cmp     rbx, rax
-	je      .eat
-	movzx   rax, byte [board + rbx]
-	cmp     rax, 1
-	je      .dead
-	movzx   rax, word [snk_tail]
-	movzx   rbx, word [snake + rax*2]
-	mov     byte [board + rbx], 0
-	inc     ax
-	cmp     ax, 400
-	jb      .ok_tl
-	xor     ax, ax
-.ok_tl:
-	mov     word [snk_tail], ax
-	movzx   rax, word [snk_head]
-	inc     ax
-	cmp     ax, 400
-	jb      .ok_hd
-	xor     ax, ax
-.ok_hd:
-	mov     word [snk_head], ax
-	movzx   rbx, word [next]
-	mov     word [snake + rax*2], bx
-	mov     byte [board + rbx], 1
-	ret
-.eat:
-	movzx   rax, word [snk_head]
-	inc     ax
-	cmp     ax, 400
-	jb      .ok_eat
-	xor     ax, ax
-.ok_eat:
-	mov     word [snk_head], ax
-	movzx   rbx, word [next]
-	mov     word [snake + rax*2], bx
-	mov     byte [board + rbx], 1
-	call    food_fn
-	ret
-.dead:
-	jmp     init_game
+	.check_right:
+		cmp     eax, DIR_R
+		jne     .check_left
+		push    rax
+		mov     rax, rbx
+		xor     rdx, rdx
+		mov     rcx, WIDTH
+		div     rcx
+		test    rdx, rdx
+		pop     rax
+		jnz     .check_left
+		sub     rbx, WIDTH
+		jmp     .check_final
+	.check_left:
+		cmp     eax, DIR_L
+		jne     .check_up
+		push    rax
+		lea     rax, [rbx+1]
+		xor     rdx, rdx
+		mov     rcx, WIDTH
+		div     rcx								
+		test    rdx, rdx
+		pop     rax
+		jnz     .check_up
+		add     rbx, WIDTH
+		jmp     .check_final
+	.check_up:
+		cmp     eax, DIR_U
+		jne     .check_down
+		push    rax
+		mov     rax, rbx
+		test    rax, rax
+		pop     rax
+		jge     .check_down
+		add     rbx, 400
+		jmp     .check_final
+	.check_down:
+		push    rax
+		mov     rax, rbx
+		cmp     rax, 400
+		pop     rax
+		jl      .check_final
+		sub     rbx, 400
+	.check_final:
+		mov     word [next], bx
+		movzx   rax, word [food_idx]
+		cmp     rbx, rax
+		je      .eat
+		movzx   rax, byte [board + rbx]
+		cmp     rax, 1
+		je      .dead
+		movzx   rax, word [snk_tail]
+		movzx   rbx, word [snake + rax*2]
+		mov     byte [board + rbx], 0
+		inc     ax
+		cmp     ax, 400
+		jb      .ok_tl
+		xor     ax, ax
+	.ok_tl:
+		mov     word [snk_tail], ax
+		movzx   rax, word [snk_head]
+		inc     ax
+		cmp     ax, 400
+		jb      .ok_hd
+		xor     ax, ax
+	.ok_hd:
+		mov     word [snk_head], ax
+		movzx   rbx, word [next]
+		mov     word [snake + rax*2], bx
+		mov     byte [board + rbx], 1
+		ret
+	.eat:
+		movzx   rax, word [snk_head]
+		inc     ax
+		cmp     ax, 400
+		jb      .ok_eat
+		xor     ax, ax
+	.ok_eat:
+		mov     word [snk_head], ax
+		movzx   rbx, word [next]
+		mov     word [snake + rax*2], bx
+		mov     byte [board + rbx], 1
+		call    food_fn
+		ret
+	.dead:
+		jmp     init_game
 init_game:
 	call    zerob
 	mov     word [snk_head], 0
@@ -215,7 +213,7 @@ _start:
 	sub     rsp, 48
 	rdtsc
 	shl     rdx, 32								; to zero low bits
-	or      rax, rdx							; 		and construct rdtsc from eax, edx
+	or      rax, rdx							; and construct rdtsc from eax, edx
 	mov     [seed], rax							; randseed
 	mov     rcx, -10							; stdout
 	call    [GetStdHandle]
@@ -224,43 +222,43 @@ _start:
 	call    [GetStdHandle]
 	mov     [hStdout], rax
 	call    init_game
-.game_loop:
-	mov     rbx, 0
-.render_loop:
-	movzx   eax, byte [board + rbx]
-	cmp     eax, 1
-	je      .draw_snake
-	cmp     eax, 2
-	je      .draw_food
-	lea     rdx, [spacechar]
-	jmp     .rest
-.draw_snake:
-	lea     rdx, [snakechar]
-	jmp     .rest
-.draw_food:
-	lea     rdx, [foodchar]
-.rest:
-	push    rdx
-	mov     rax, rbx
-	xor     rdx, rdx
-	mov     rcx, WIDTH
-	div     rcx
-	shl     eax, 16
-	or      eax, edx
-	mov     r9d, eax
-	pop     rdx
-	mov     rcx, [hStdout]
-	mov     r8, 1
-	lea     rax, [events_read]
-	mov     [rsp+32], rax
-	call    [WriteConsoleOutputCharacterW]
-	inc     rbx
-	cmp     rbx, 400
-	jne     .render_loop
-	call    read_input
-	call    update
-	invoke  Sleep, 100
-	jmp     .game_loop
+	.game_loop:
+		mov     rbx, 0
+	.render_loop:
+		movzx   eax, byte [board + rbx]
+		cmp     eax, 1
+		je      .draw_snake
+		cmp     eax, 2
+		je      .draw_food
+		lea     rdx, [spacechar]
+		jmp     .rest
+	.draw_snake:
+		lea     rdx, [snakechar]
+		jmp     .rest
+	.draw_food:
+		lea     rdx, [foodchar]
+	.rest:
+		push    rdx
+		mov     rax, rbx
+		xor     rdx, rdx
+		mov     rcx, WIDTH
+		div     rcx
+		shl     eax, 16
+		or      eax, edx
+		mov     r9d, eax ; position coord, arg 4
+		pop     rdx ; char ptr, arg 2
+		mov     rcx, [hStdout] ; stdout, arg 1
+		mov     r8, 1 ; len, arg 3
+		lea     rax, [events_read]
+		mov     [rsp+32], rax ; stack below shadow space, arg 5
+		call    [WriteConsoleOutputCharacterW]
+		inc     rbx
+		cmp     rbx, 400
+		jne     .render_loop
+		call    read_input
+		call    update
+		invoke  Sleep, 100
+		jmp     .game_loop
 quit:           								; restore stack and shut program down
 	add     rsp, 48
 	pop     rbp
@@ -268,34 +266,33 @@ quit:           								; restore stack and shut program down
 ; end of instructions
 
 section '.data' data readable writeable
-dirtable        dw      -WIDTH, 1, WIDTH, -1	; delta array
-foodchar        db      '*', 0
-snakechar       db      'O', 0
-spacechar       db      ' ', 0
+	dirtable        dw      -WIDTH, 1, WIDTH, -1	; delta array
+	foodchar        db      '*', 0
+	snakechar       db      'O', 0
+	spacechar       db      ' ', 0
 
 section '.bss' readable writeable
-board           rb      400
-snake           rw      400
-seed            rq      1
-snk_head        rw      1
-snk_tail        rw      1
-food_idx        rw      1
-input_record    rb      20
-events_read     rd      1
-pending_events  rd      1
-hStdin          rq      1
-dir             rw      1
-dir_buf         rw      1
-hStdout         rq      1
-next            rw      1
+	board           rb      400
+	snake           rw      400
+	seed            rq      1
+	snk_head        rw      1
+	snk_tail        rw      1
+	food_idx        rw      1
+	input_record    rb      20
+	events_read     rd      1
+	pending_events  rd      1
+	hStdin          rq      1
+	dir             rw      1
+	dir_buf         rw      1
+	hStdout         rq      1
+	next            rw      1
 
 section '.idata' import data readable writeable
-library kernel32, 'kernel32.dll'
-import	kernel32, \
-GetStdHandle,'GetStdHandle',\
-WriteConsoleOutputCharacterW,'WriteConsoleOutputCharacterW',\
-SetConsoleCursorPosition,'SetConsoleCursorPosition',\
-ReadConsoleInputA,'ReadConsoleInputA',\
-GetNumberOfConsoleInputEvents,'GetNumberOfConsoleInputEvents',\
-Sleep,	'Sleep',\
-ExitProcess, 'ExitProcess'
+	library kernel32, 'kernel32.dll'
+	import	kernel32,\
+		Sleep, 						  'Sleep', \
+		GetStdHandle, 				  'GetStdHandle', \
+		ExitProcess,  				  'ExitProcess', \ 
+		WriteConsoleOutputCharacterW, 'WriteConsoleOutputCharacterW', \		
+		GetNumberOfConsoleInputEvents,'GetNumberOfConsoleInputEvents', \
+		ReadConsoleInputA,			  'ReadConsoleInputA'
