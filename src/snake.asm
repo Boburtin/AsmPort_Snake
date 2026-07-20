@@ -1,6 +1,7 @@
 format PE64 CONSOLE 6.0
 entry _start
 include "win64a.inc"
+include "USERFNS/zerob.inc"
 
 ; Constants
 WIDTH			equ 20
@@ -22,34 +23,16 @@ DIR_L			equ 3
 
 section '.text' code readable executable
 
-zerob:
-	mov     rdi, board
-	mov     al, 0
-	mov     rcx, 400
-	rep     stosb
-	ret
-
-xor64:
-	mov     rax, [seed]
-	mov     rcx, rax
-	shl     rax, 13
-	xor     rax, rcx
-	mov     rcx, rax
-	shr     rax, 7
-	xor     rax, rcx
-	mov     rcx, rax
-	shl     rax, 17
-	xor     rax, rcx
-	mov     [seed], rax
-	ret
-
 food_fn:
 	.loopstrt:
-		call    xor64
-		xor     rdx, rdx							; zero rdx so it doesn't read it as an extension of rcx
+		XOR64 	seed
+; clear rdx bits because div needs it cleared
+		xor     rdx, rdx							
 		mov     rcx, 400
-		div     rcx									; rdx holds the remainder (index % 400)
+		div     rcx									
+; rdx = xorshift result % 400 = food index (if free)
 		cmp     byte 	[board + rdx], 0
+; loop if the value of board[rdx] isn't 0 (empty)
 		jne     .loopstrt
 		mov     word	[food_idx], dx
 		mov     byte	[board + rdx], 2
@@ -198,7 +181,7 @@ update:
 	.dead:
 		jmp     init_game
 init_game:
-	call    zerob
+	ZEROB	board
 	mov     word [snk_head], 0
 	mov     word [snk_tail], 0
 	mov     word [dir], 1
@@ -257,16 +240,19 @@ _start:
 		jne     .render_loop
 		call    read_input
 		call    update
-		invoke  Sleep, 100
+		invoke  Sleep, 150
 		jmp     .game_loop
 quit:           								; restore stack and shut program down
-	add     rsp, 48
+	add     rsp, 40
 	pop     rbp
+    sub     rsp, 8
 	invoke  ExitProcess, 0
 ; end of instructions
 
 section '.data' data readable writeable
-	dirtable        dw      -WIDTH, 1, WIDTH, -1	; delta array
+; direction deltas
+	dirtable        dw      -WIDTH, 1, WIDTH, -1
+; console output characters
 	foodchar        db      '*', 0
 	snakechar       db      'O', 0
 	spacechar       db      ' ', 0
