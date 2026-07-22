@@ -4,9 +4,9 @@ include "win64a.inc"
 include "MYDEFS.inc"
 
 ; Constants
-WIDTH			equ 20
-HEIGHT			equ 20
-TILES			equ 400
+WIDTH			equ 32
+HEIGHT			equ 16
+TILES			equ 512
 START_INDEX 	equ 210
 START_FOOD  	equ 110
 
@@ -26,16 +26,14 @@ section '.text' code readable executable
 food_fn:
 	.loopstrt:
 		XOR64 	seed
-; clear rdx bits because div needs it cleared
-		xor     rdx, rdx							
-		mov     rcx, 400
-		div     rcx									
-; rdx = xorshift result % 400 = food index (if free)
-		cmp     byte 	[board + rdx], 0
+; rax holds the xorshifted seed value and tiles is a power of 2 so and > div
+        and rax, TILES-1
+; rdx = xorshift result % TILES = food index (if free)
+		cmp     byte 	[board + rax], 0
 ; loop if the value of board[rdx] isn't 0 (empty)
 		jne     .loopstrt
-		mov     word	[food_idx], dx
-		mov     byte	[board + rdx], 2
+		mov     word	[food_idx], ax
+		mov     byte	[board + rax], 2
 		ret
 
 read_input:
@@ -80,63 +78,46 @@ read_input:
 	.no_input:
 		ret
 update:
+; current direction [0, 1, 2, 3]
 	movzx   eax, word [dir]
+; next direction [0, 1, 2, 3]
 	movzx   ecx, word [dir_buf]
-	mov     edx, ecx
-	sub     ecx, eax
-	and     ecx, 3
-; a delta of 2 means invalid (opposite to current) pending direction
-	cmp     ecx, 2
-; conditionally write pending direction buffer into real direction
-	cmovne  eax, edx
+	mov     edx, ecx; save dir_buf for the cmovne
+	sub     ecx, eax; compute delta / dir_buf - dir
+	and     ecx, 3  ; equivalent to mod 4
+	cmp     ecx, 2  ; set ZF = 1 if true
+	cmovne  eax, edx; fires if ZF = 0 only, otherwise still holds OG dir
 	mov     word [dir], ax
 	movzx   rbx, word [snk_head]
 	movzx   rbx, word [snake + rbx*2]
 	movsx   rdx, word [dirtable + rax*2]
 	add     rbx, rdx
 	.check_right:
-		cmp     eax, DIR_R
+		cmp     eax, DIR_R; cmp against either OG dir or new dir
 		jne     .check_left
-		push    rax
-		mov     rax, rbx
-		xor     rdx, rdx
-		mov     rcx, WIDTH
-		div     rcx
-		test    rdx, rdx
-		pop     rax
-		jnz     .check_left
-		sub     rbx, WIDTH
+        test    rbx, WIDTH-1
+        jnz     .check_final
+        sub     rbx, WIDTH
 		jmp     .check_final
 	.check_left:
 		cmp     eax, DIR_L
 		jne     .check_up
-		push    rax
 		lea     rax, [rbx+1]
-		xor     rdx, rdx
-		mov     rcx, WIDTH
-		div     rcx								
-		test    rdx, rdx
-		pop     rax
-		jnz     .check_up
-		add     rbx, WIDTH
+        and     rdx, WIDTH-1
+        jnz     .check_final
+        add     rbx, WIDTH
 		jmp     .check_final
 	.check_up:
 		cmp     eax, DIR_U
 		jne     .check_down
-		push    rax
-		mov     rax, rbx
-		test    rax, rax
-		pop     rax
-		jge     .check_down
-		add     rbx, 400
+		test    rbx, rbx
+		jge     .check_final
+		add     rbx, TILES
 		jmp     .check_final
 	.check_down:
-		push    rax
-		mov     rax, rbx
-		cmp     rax, 400
-		pop     rax
+		cmp     rbx, TILES
 		jl      .check_final
-		sub     rbx, 400
+		sub     rbx, TILES
 	.check_final:
 		mov     word [next], bx
 		movzx   rax, word [food_idx]
@@ -149,14 +130,14 @@ update:
 		movzx   rbx, word [snake + rax*2]
 		mov     byte [board + rbx], 0
 		inc     ax
-		cmp     ax, 400
+		cmp     ax, TILES
 		jb      .ok_tl
 		xor     ax, ax
 	.ok_tl:
 		mov     word [snk_tail], ax
 		movzx   rax, word [snk_head]
 		inc     ax
-		cmp     ax, 400
+		cmp     ax, TILES
 		jb      .ok_hd
 		xor     ax, ax
 	.ok_hd:
@@ -168,7 +149,7 @@ update:
 	.eat:
 		movzx   rax, word [snk_head]
 		inc     ax
-		cmp     ax, 400
+		cmp     ax, TILES
 		jb      .ok_eat
 		xor     ax, ax
 	.ok_eat:
@@ -230,7 +211,7 @@ _start:
 		mov     [rsp+32], rax ; stack below shadow space, arg 5
 		call    [WriteConsoleOutputCharacterW]
 		inc     rbx
-		cmp     rbx, 400
+		cmp     rbx, TILES
 		jne     .render_loop
 		call    read_input
 		call    update
@@ -248,12 +229,13 @@ section '.data' data readable writeable
 	dirtable        dw      -WIDTH, 1, WIDTH, -1
 ; console output characters
 	foodchar        db      '*', 0
-	snakechar       db      'O', 0
+	snakechar       db      'o', 0
+    headchar        db      'O', 0
 	spacechar       db      ' ', 0
 
 section '.bss' readable writeable
-	board           rb      400
-	snake           rw      400
+	board           rb      TILES
+	snake           rw      TILES
 	seed            rq      1
 	snk_head        rw      1
 	snk_tail        rw      1
