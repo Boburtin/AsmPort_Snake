@@ -1,4 +1,3 @@
-
 macro ZEROB arr
 {
     mov rdi, arr
@@ -20,4 +19,19 @@ macro XOR64 sd
     shl rax, 17
     xor rax, rcx
     mov [sd], rax
+}
+
+macro GETHANDLE op, ptr
+{
+    invoke GetStdHandle, op
+    mov [ptr], rax
+}
+
+macro GETRNGSEED seed_ptr
+{
+    rdtsc
+    shl rdx, 32
+    or rax, rdx
+    or rax, 1
+    mov [seed_ptr], rax
 }

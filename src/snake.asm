@@ -1,7 +1,7 @@
 format PE64 CONSOLE 6.0
 entry _start
 include "win64a.inc"
-include "USERFNS/zerob.inc"
+include "MYDEFS.inc"
 
 ; Constants
 WIDTH			equ 20
@@ -190,20 +190,14 @@ init_game:
 	mov     byte [board + START_INDEX], 1
 	call    food_fn
 	ret
+
 _start:
 	push    rbp
 	mov     rbp, rsp
 	sub     rsp, 48
-	rdtsc
-	shl     rdx, 32								; to zero low bits
-	or      rax, rdx							; and construct rdtsc from eax, edx
-	mov     [seed], rax							; randseed
-	mov     rcx, -10							; stdout
-	call    [GetStdHandle]
-	mov     [hStdin], rax
-	mov     rcx, -11							; stdin
-	call    [GetStdHandle]
-	mov     [hStdout], rax
+	GETRNGSEED seed
+    GETHANDLE -10, hStdin
+    GETHANDLE -11, hStdout
 	call    init_game
 	.game_loop:
 		mov     rbx, 0
@@ -242,7 +236,7 @@ _start:
 		call    update
 		invoke  Sleep, 150
 		jmp     .game_loop
-quit:           								; restore stack and shut program down
+quit:
 	add     rsp, 40
 	pop     rbp
     sub     rsp, 8
@@ -274,11 +268,11 @@ section '.bss' readable writeable
 	next            rw      1
 
 section '.idata' import data readable writeable
-	library kernel32, 'kernel32.dll'
+	library kernel32, "kernel32.dll"
 	import	kernel32,\
-		Sleep, 						  'Sleep', \
-		GetStdHandle, 				  'GetStdHandle', \
-		ExitProcess,  				  'ExitProcess', \ 
-		WriteConsoleOutputCharacterW, 'WriteConsoleOutputCharacterW', \		
-		GetNumberOfConsoleInputEvents,'GetNumberOfConsoleInputEvents', \
-		ReadConsoleInputA,			  'ReadConsoleInputA'
+		Sleep, 						  "Sleep", \
+		GetStdHandle, 				  "GetStdHandle", \
+		ExitProcess,  				  "ExitProcess", \ 
+		WriteConsoleOutputCharacterW, "WriteConsoleOutputCharacterW", \		
+		GetNumberOfConsoleInputEvents,"GetNumberOfConsoleInputEvents", \
+		ReadConsoleInputA,			  "ReadConsoleInputA"
