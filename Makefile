@@ -1,21 +1,22 @@
 XASM := fasm
-
 SRCDIR := src
 BUILDDIR := build
-TARGET := bin/ASMSnake.exe
+BINDDIR := bin
 SRCEXT := asm
+TARGET := ${BINDDIR}/ASMSnake.exe
 
-SRCS := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
+SRCS := $(shell find ${SRCDIR} -type f -name *.${SRCEXT})
 
-all: $(TARGET)
+all: ${TARGET}
 
-$(TARGET): $(SRCS)
-	$(XASM) $< $@
+${TARGET}: ${SRCS}
+	@mkdir -p ${BINDDIR}
+	${XASM} $< $@
 
 clean:
-	@$(RM) -r $(TARGET)
+	@${RM} -rf ${TARGET} ${BINDDIR}
 
-run: $(TARGET)
-	./$(TARGET)
+run: ${TARGET}
+	./${TARGET}
 
 .PHONY: all clean run
