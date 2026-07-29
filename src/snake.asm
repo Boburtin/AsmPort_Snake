@@ -3,35 +3,15 @@ entry _start
 include "win64a.inc"
 include "MYDEFS.inc"
 
-; Constants
-WIDTH			equ 32
-HEIGHT			equ 16
-TILES			equ 512
-START_INDEX 	equ 210
-START_FOOD  	equ 110
-
-KEY_U			equ 0x26
-KEY_R			equ 0x27
-KEY_D			equ 0x28
-KEY_L			equ 0x25
-KEY_ESC			equ 0x1B
-
-DIR_U			equ 0
-DIR_R			equ 1
-DIR_D			equ 2
-DIR_L			equ 3	
-
 section '.text' code readable executable
 
 food_fn:
+
 	.loopstrt:
 		XOR64 	seed
-; rax holds the xorshifted seed value and tiles is a power of 2 so and > div
-        and rax, TILES-1
-; rdx = xorshift result % TILES = food index (if free)
-		cmp     byte 	[board + rax], 0
-; loop if the value of board[rdx] isn't 0 (empty)
-		jne     .loopstrt
+        and rax, TILES-1 ; rax holds the xorshifted seed value and tiles is a power of 2 so and > div
+		cmp     byte 	[board + rax], 0; rdx = xorshift result % TILES = food index (if free)
+		jne     .loopstrt; loop if the value of board[rdx] isn't 0 (empty)
 		mov     word	[food_idx], ax
 		mov     byte	[board + rax], 2
 		ret
